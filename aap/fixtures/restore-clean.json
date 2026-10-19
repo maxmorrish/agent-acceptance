@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "restore-clean",
+  "kind": "restore",
+  "files": {
+    "draft.txt": "pre-existing dirty draft\n",
+    "untouched.txt": "keep\n"
+  },
+  "agent_edits": {
+    "draft.txt": "agent draft\n"
+  },
+  "expected": {
+    "files": {
+      "draft.txt": "pre-existing dirty draft\n"
+    },
+    "conflicts": []
+  }
+}

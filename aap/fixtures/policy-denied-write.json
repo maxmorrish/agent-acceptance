@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "policy-denied-write",
+  "kind": "denied_write",
+  "files": {
+    "aap-denied-target.txt": "KEEP\n"
+  },
+  "target": "aap-denied-target.txt",
+  "expected": {
+    "content": "KEEP\n",
+    "denial": true
+  }
+}

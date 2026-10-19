@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "hook-tool-call",
+  "kind": "hook",
+  "files": {
+    "read-me.txt": "synthetic input\n"
+  },
+  "target": "read-me.txt",
+  "expected": {
+    "event": "PreToolUse",
+    "tool": "Read"
+  }
+}

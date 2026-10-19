@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "instructions-root",
+  "kind": "instruction",
+  "files": {
+    "$INSTRUCTIONS": "For files in this directory, acceptance sentinel: ROOT_RULE\nWrite only that sentinel followed by a newline.\n"
+  },
+  "target": "result.txt",
+  "expected": {
+    "content": "ROOT_RULE\n"
+  }
+}

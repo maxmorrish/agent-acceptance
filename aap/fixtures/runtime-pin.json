@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "runtime-pin",
+  "kind": "runtime",
+  "files": {},
+  "expected": {
+    "matches_pin": true
+  }
+}

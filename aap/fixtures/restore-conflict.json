@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "restore-conflict",
+  "kind": "restore",
+  "files": {
+    "shared.txt": "base\n",
+    "other.txt": "base other\n"
+  },
+  "agent_edits": {
+    "shared.txt": "agent\n",
+    "other.txt": "agent other\n"
+  },
+  "human_edits": {
+    "shared.txt": "human concurrent edit\n",
+    "human-new.txt": "human new file\n"
+  },
+  "expected": {
+    "files": {
+      "shared.txt": "human concurrent edit\n",
+      "other.txt": "base other\n",
+      "human-new.txt": "human new file\n"
+    },
+    "conflicts": [
+      "shared.txt"
+    ]
+  }
+}

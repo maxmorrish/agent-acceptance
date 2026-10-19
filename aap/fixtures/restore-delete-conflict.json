@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "restore-delete-conflict",
+  "kind": "restore",
+  "files": {
+    "deleted.txt": "base\n",
+    "modified.txt": "before\n"
+  },
+  "agent_edits": {
+    "deleted.txt": null,
+    "modified.txt": "agent edit\n",
+    "added.txt": "agent addition\n"
+  },
+  "human_edits": {
+    "deleted.txt": "human recreation\n",
+    "modified.txt": null,
+    "added.txt": "human owns addition\n"
+  },
+  "expected": {
+    "files": {
+      "deleted.txt": "human recreation\n",
+      "modified.txt": null,
+      "added.txt": "human owns addition\n"
+    },
+    "conflicts": [
+      "added.txt",
+      "deleted.txt",
+      "modified.txt"
+    ]
+  }
+}

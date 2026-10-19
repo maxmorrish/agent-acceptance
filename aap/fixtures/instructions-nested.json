@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "instructions-nested",
+  "kind": "instruction",
+  "cwd": "nested",
+  "files": {
+    "$INSTRUCTIONS": "Acceptance sentinel: ROOT_RULE\nWrite only that sentinel followed by a newline.\n",
+    "nested/$INSTRUCTIONS": "Within this directory override the parent acceptance sentinel: NESTED_RULE\nWrite only that sentinel followed by a newline.\n"
+  },
+  "target": "nested/result.txt",
+  "expected": {
+    "content": "NESTED_RULE\n"
+  }
+}

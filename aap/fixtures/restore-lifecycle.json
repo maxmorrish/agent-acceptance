@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "clients": [
+    "codex",
+    "claude"
+  ],
+  "id": "restore-lifecycle",
+  "kind": "restore",
+  "files": {
+    "deleted.txt": "original deleted\n",
+    "old-name.txt": "original renamed\n"
+  },
+  "agent_edits": {
+    "deleted.txt": null,
+    "old-name.txt": null,
+    "new-name.txt": "original renamed\n",
+    "added.txt": "agent addition\n"
+  },
+  "expected": {
+    "files": {
+      "deleted.txt": "original deleted\n",
+      "old-name.txt": "original renamed\n",
+      "new-name.txt": null,
+      "added.txt": null
+    },
+    "conflicts": []
+  }
+}
