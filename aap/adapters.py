@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 
+from .auth import AuthError
 from .isolation import edit
 from .model import Observation, digest, strict_json
 
@@ -156,9 +157,11 @@ def decode_stream(client, raw):
 class LiveAdapter:
     synthetic = False
 
-    def __init__(self, client, *, pin=None, enabled=False, executor=invoke):
+    def __init__(self, client, *, pin=None, enabled=False, executor=invoke, auth=None):
+        if auth is not None and auth.client != client:
+            raise ValueError("auth provision belongs to another client")
         self.client = self.name = client
-        self.pin, self.enabled, self.executor = pin, enabled, executor
+        self.pin, self.enabled, self.executor, self.auth = pin, enabled, executor, auth
 
     def configure(self, fixture, workspace):
         # Original minimal configs, never copied from an installed client.
@@ -207,6 +210,15 @@ class LiveAdapter:
             return Observation(state="unknown", reason="UNVERIFIED: an explicit runtime pin is required")
         observation = Observation()
         try:
+            self._run(fixture, workspace, observation)
+        finally:
+            # Remove the case credential even after errors; the temp tree goes next.
+            if observation.auth is not None:
+                self.auth.remove(workspace, observation.auth)
+        return observation
+
+    def _run(self, fixture, workspace, observation):
+        try:
             binary = Path(self.pin.executable).resolve(strict=True)
             if not binary.is_file():
                 raise ValueError("not a regular executable")
@@ -217,8 +229,11 @@ class LiveAdapter:
             if before_hash != self.pin.sha256:
                 observation.runtime["matches_pin"] = False
                 observation.reason = "resolved executable differs from pinned bytes"
-                return observation
+                return
             self.configure(fixture, workspace)
+            # Auth goes into this case's fresh dirs after config, before any launch.
+            if self.auth is not None:
+                observation.auth = self.auth.apply(workspace)
             code, out, _ = self.executor([str(binary), "--version"], workspace, timeout=10)
             match = re.fullmatch(r"(?:codex-cli |claude |Claude Code )?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?)(?: \(Claude Code\))?", out.strip())
             if code or not match:
@@ -227,7 +242,7 @@ class LiveAdapter:
             observation.runtime["matches_pin"] = observation.version == self.pin.version
             if not observation.runtime["matches_pin"]:
                 observation.reason = "executed version differs from pin"
-                return observation
+                return
             observation.started = True
             code, out, _ = self.executor(self.command(fixture, workspace, str(binary)), workspace)
             after_hash = digest(binary.read_bytes())
@@ -245,7 +260,9 @@ class LiveAdapter:
         except (OSError, ValueError, RuntimeError) as error:
             observation.state = "unknown"
             # Error text may contain host paths or account metadata; keep only its class.
-            if isinstance(error, OSError):
+            if isinstance(error, AuthError):
+                reason = f"test credential refused: {error}"
+            elif isinstance(error, OSError):
                 reason = "executable or isolated artifact unavailable"
             elif isinstance(error, RuntimeError) and str(error) in {"process timeout", "process output limit"}:
                 reason = str(error)
@@ -254,7 +271,6 @@ class LiveAdapter:
             else:
                 reason = "isolated client invocation failed"
             observation.reason = f"UNVERIFIED: {reason} ({type(error).__name__})"
-        return observation
 
 
 class CodexAdapter(LiveAdapter):

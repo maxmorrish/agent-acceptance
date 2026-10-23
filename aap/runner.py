@@ -152,6 +152,8 @@ def run_case(fixture, adapter, output, *, dry_run=False, restorer=restore):
     # Raw streams, stderr, command strings and host executable paths are not archived.
     evidence = {"fixture_sha256": fixture.hash, "before": manifest(before), "after": manifest(after),
                 "runtime": observation.runtime, "client_version": observation.version,
+                "auth": observation.auth and {k: observation.auth[k] for k in
+                                              ("provisioned", "kind", "removed", "rotated")},
                 "expected": expected, "observed": observed, "reason": reason,
                 "tool_evidence": [{"id_sha256": digest(e["id"].encode()) if isinstance(e.get("id"), str) else None,
                                    "name": e.get("name") if e.get("name") in
@@ -165,13 +167,14 @@ def run_case(fixture, adapter, output, *, dry_run=False, restorer=restore):
                                    "event": "PreToolUse" if h.get("hook_event_name") == "PreToolUse" else "other",
                                    "tool": "Read" if h.get("tool_name") == "Read" else "other"}
                                   for h in observation.hooks if isinstance(h, dict)]}
+    auth = evidence["auth"]
     path = evidence_dir / "evidence.json"
     path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (evidence_dir / "fixture.json").write_bytes(fixture.raw)
     return {"fixture": fixture.id, "fixture_sha256": fixture.hash, "client": adapter.name,
             "simulated_client": adapter.client if adapter.synthetic else None,
             "client_version": observation.version, "status": status, "reason": reason,
-            "exercised": exercised, "expected": expected, "observed": observed,
+            "exercised": exercised, "expected": expected, "observed": observed, "auth": auth,
             "evidence": [f"{fixture.id}/evidence.json", f"{fixture.id}/fixture.json"]}
 
 
@@ -190,6 +193,8 @@ def run(fixtures, adapter, output_root=Path("aap-results"), *, dry_run=False, re
               "live_verification": "UNVERIFIED" if adapter.synthetic or dry_run or status != "pass" else "EXERCISED",
               "exercised": sum(c["exercised"] for c in cases), "selected": len(cases),
               "counts": {s: sum(c["status"] == s for c in cases) for s in ("pass", "fail", "unsupported", "unknown")},
+              "auth": {key: sum(bool(c["auth"] and c["auth"][key]) for c in cases)
+                       for key in ("provisioned", "removed", "rotated")},
               "cases": cases, "report": f"{run_id}/report.json"}
     (output / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report

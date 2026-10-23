@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from .adapters import ClaudeAdapter, CodexAdapter, FakeAdapter, Pin
+from .auth import AuthError, AuthProvision
 from .model import Fixture
 from .runner import run
 
@@ -30,13 +31,30 @@ def main(argv=None):
     command.add_argument("--live", action="store_true", help="launch client; requires an externally isolated host")
     command.add_argument("--pin", type=Path, help="explicit executable/version/SHA-256 JSON pin")
     command.add_argument("--output", type=Path, default=Path("aap-results"))
+    auth = command.add_mutually_exclusive_group()
+    auth.add_argument("--auth-file", type=Path,
+                      help="one client credential file (Codex auth.json, Claude .credentials.json) "
+                           "copied, filtered, into each case's throwaway config dir")
+    auth.add_argument("--auth-token-file", type=Path,
+                      help="Claude only: file holding one OAuth token, set for each case's process only")
     args = parser.parse_args(argv)
     try:
         fixtures = select(args.fixture)
         pin = Pin.load(args.pin) if args.pin else None
+        credential = None
+        if args.auth_file or args.auth_token_file:
+            if args.client == "fake" or not args.live:
+                raise AuthError("credentials are only accepted for a --live client run")
+            credential = AuthProvision.load(args.client, args.auth_file or args.auth_token_file,
+                                            kind="file" if args.auth_file else "token")
         adapter = (FakeAdapter() if args.client == "fake" else
-                   {"codex": CodexAdapter, "claude": ClaudeAdapter}[args.client](pin=pin, enabled=args.live))
+                   {"codex": CodexAdapter, "claude": ClaudeAdapter}[args.client](
+                       pin=pin, enabled=args.live, auth=credential))
         report = run(fixtures, adapter, args.output, dry_run=args.dry_run)
+    except AuthError as error:
+        # Fixed messages; no path or value is echoed.
+        report = {"schema_version": 1, "status": "unknown", "exercised": 0,
+                  "live_verification": "UNVERIFIED", "reason": f"test credential refused: {error}"}
     except (OSError, ValueError, TypeError, KeyError) as error:
         # Stable output without echoing personal file paths or invalid fixture contents.
         report = {"schema_version": 1, "status": "unknown", "exercised": 0,
@@ -48,6 +66,8 @@ def main(argv=None):
         print(f"{label}: {report['status']} | {report['exercised']} exercised | live {report['live_verification']}")
         for case in report.get("cases", []):
             print(f"{case['status']:11} {case['fixture']}: {case['reason']}")
+        if report.get("auth", {}).get("rotated"):
+            print("WARNING: a client rewrote its case credential; the source login may need a fresh sign-in")
         if "report" in report:
             print(f"Evidence: <output>/{report['report']}")
         elif "reason" in report:

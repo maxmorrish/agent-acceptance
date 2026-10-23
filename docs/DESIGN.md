@@ -179,9 +179,17 @@ untrusted executable, defeat a managed system policy, disable all vendor
 keychain access, guarantee process containment against daemonization, or prevent
 discovery outside the tree by a malicious client. Therefore live execution is
 off by default; `--live` must only be used in an externally isolated disposable
-host without personal mounts, credentials or config. Authentication provisioning
-is deferred. Missing auth or an incompatible CLI interface yields unknown, never
-an automatic fallback to the real home directory. M1 live adapters are UNVERIFIED.
+host without personal mounts, credentials or config. Missing auth or an
+incompatible CLI interface yields unknown, never an automatic fallback to the real
+home directory.
+
+Milestone 2 adds `aap/auth.py`: an explicit, per-case, auth-only provision. The
+operator names one credential file by its client-specific name; only login fields
+are kept; the result is written 0600 into the case's own config directory after
+the minimal config and before the version probe, and removed in a `finally`
+block. Near-refresh credentials are refused because a refresh inside a copy can
+rotate the source login's refresh token. Receipts carry four booleans and no
+values. See [LIVE-RESULTS.md](LIVE-RESULTS.md) for the first live runs.
 
 ## Restore contract
 
@@ -212,8 +220,8 @@ No claim that an instruction sentinel proves internal planning provenance, that
 hook receipts resist deliberate forgery, or that CLI identity proves internal
 daemon/child runtime identity. Reports are local evidence, not signed attestations.
 
-Next milestone: validate actual CLI flags and stream shapes in a disposable
-credential-free host, define deliberate ephemeral test authentication, capture
+Next milestone: run all nine fixtures per client in a disposable
+credential-free host with the auth provision above, capture
 redacted synthetic transport fixtures from real runs, and publish a versioned
 capability matrix with measured unsupported/unknown boundaries. Then add native
 snapshot adapters and a richer shell-mediated instruction/policy corpus. The

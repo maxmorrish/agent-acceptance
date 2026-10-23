@@ -134,6 +134,7 @@ class Observation:
     runtime: dict = field(default_factory=dict)
     events: list = field(default_factory=list)
     hooks: list = field(default_factory=list)
+    auth: dict | None = None  # value-free provisioning receipt
 
 
 def overall(cases):

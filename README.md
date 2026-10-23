@@ -91,11 +91,42 @@ automatically from whatever happens to be installed after it.
 
 For Claude, use `--client claude` and its own pin. The runner creates fresh
 `HOME`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, XDG directories, and project directories.
-It does not copy installed settings or credentials and does not inherit API keys.
+It does not copy installed settings and does not inherit API keys.
 Missing authentication, unavailable executables, changed CLI flags, startup
-errors, timeouts, and unrecognized output produce `unknown`. Authentication
-provisioning is not implemented in this milestone. No live vendor session was
-used to validate these adapters.
+errors, timeouts, and unrecognized output produce `unknown`.
+
+### Test authentication
+
+A live client needs a login. Name one credential file and the runner copies only
+that, per case:
+
+```sh
+.venv/bin/aap run --client codex --live --pin codex-pin.json --auth-file /path/to/auth.json
+.venv/bin/aap run --client claude --live --pin claude-pin.json --auth-token-file /path/to/token
+```
+
+- Codex accepts a file named `auth.json`. Claude Code accepts a file named
+  `.credentials.json`, or `--auth-token-file` with one OAuth token (for example
+  from `claude setup-token`), which is set only in that case's process
+  environment as `CLAUDE_CODE_OAUTH_TOKEN`.
+- Any other file name is refused, so config, settings, hooks, skills and memory
+  files cannot be passed by mistake. Links, files not owned by you, files readable
+  by group or others, and files over 64 KiB are refused.
+- Only the login fields are kept (`auth_mode`, `OPENAI_API_KEY`, `tokens`,
+  `last_refresh` for Codex; `claudeAiOauth` for Claude). They are written mode
+  0600 into the case's fresh `CODEX_HOME` or `CLAUDE_CONFIG_DIR` after the minimal
+  config and before the first launch, and removed when the case ends, including
+  after errors.
+- Credentials close to a refresh are refused (Codex: last refresh over 7 days
+  ago; either client: access token expiring within 30 minutes). A refresh inside a
+  throwaway copy can rotate the refresh token and sign out the original login. If
+  a client rewrites the credential anyway, the report counts it under
+  `auth.rotated` and the CLI prints a warning.
+- Reports and evidence record only whether a credential was provisioned, removed
+  or rotated. Values, paths and hashes of credentials are never written.
+
+This is a convenience for a disposable host, not containment: a live client still
+runs as your user. Measured live results are in [docs/LIVE-RESULTS.md](docs/LIVE-RESULTS.md).
 
 Result meanings:
 

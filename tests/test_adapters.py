@@ -170,3 +170,14 @@ def test_pin_validation(tmp_path):
     path.write_text(json.dumps({"executable": "relative", "version": "1.2.3", "sha256": "a" * 64}))
     with pytest.raises(ValueError):
         Pin.load(path)
+
+
+def test_observed_claude_not_logged_in_shape_is_never_a_pass():
+    # Shape observed from Claude Code 2.1.309 with no credential: "success" subtype, is_error true.
+    raw = "\n".join(map(json.dumps, [
+        {"type": "system", "subtype": "init"},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "Not logged in"}]}},
+        {"type": "result", "subtype": "success", "is_error": True, "result": "Not logged in"},
+    ]))
+    with pytest.raises(ValueError):
+        decode_stream("claude", raw)
