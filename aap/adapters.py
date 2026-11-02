@@ -89,7 +89,10 @@ def prompt_for(fixture, workspace):
 
 def decode_stream(client, raw):
     """Decode the supported JSONL envelope; incomplete/unknown shapes cannot pass."""
+    if client not in {"codex", "claude"}:
+        raise ValueError("unknown stream client")
     events, completed, recognized = [], False, False
+    command_ids = set()
     tools = {}
     for line in raw.splitlines():
         if not line.strip():
@@ -115,7 +118,11 @@ def decode_stream(client, raw):
                 code = value.get("exit_code")
                 if not isinstance(command, str) or not isinstance(output, str) or type(code) is not int:
                     raise ValueError("incomplete command event")
-                events.append({"id": value.get("id"), "name": "shell", "input": command,
+                ident = value.get("id")
+                if not isinstance(ident, str) or not ident or ident in command_ids:
+                    raise ValueError("missing or duplicate command id")
+                command_ids.add(ident)
+                events.append({"id": ident, "name": "shell", "input": command,
                                "ok": code == 0, "denied": code != 0 and bool(re.search(
                                    r"permission denied|operation not permitted|denied by policy", output, re.I))})
         else:
@@ -125,6 +132,8 @@ def decode_stream(client, raw):
                 completed = item.get("subtype") == "success" and item.get("is_error") is False
                 if not completed:
                     raise ValueError("client reported failure")
+            if completed and typ in {"assistant", "user"}:
+                raise ValueError("tool message after terminal result")
             message = item.get("message", {})
             content = message.get("content", []) if isinstance(message, dict) else []
             if not isinstance(content, list):
@@ -134,7 +143,7 @@ def decode_stream(client, raw):
                     raise ValueError("invalid content block")
                 if block.get("type") == "tool_use":
                     ident, name, inp = block.get("id"), block.get("name"), block.get("input")
-                    if not isinstance(ident, str) or not isinstance(name, str) or not isinstance(inp, dict):
+                    if not isinstance(ident, str) or not ident or not isinstance(name, str) or not isinstance(inp, dict):
                         raise ValueError("invalid tool call")
                     if ident in tools:
                         raise ValueError("duplicate tool call id")
@@ -143,14 +152,23 @@ def decode_stream(client, raw):
                     events.append(event)
                     tools[ident] = event
                 if block.get("type") == "tool_result":
-                    event = tools.get(block.get("tool_use_id"))
-                    if event:
-                        event["ok"] = block.get("is_error", False) is False
-                        text = json.dumps(block.get("content", ""))
-                        event["denied"] = not event["ok"] and bool(re.search(
-                            r"permission denied|operation not permitted|denied by policy|not allowed", text, re.I))
+                    ident = block.get("tool_use_id")
+                    if not isinstance(ident, str) or ident not in tools:
+                        raise ValueError("orphan tool result")
+                    event = tools[ident]
+                    if event["ok"] is not None:
+                        raise ValueError("duplicate tool result")
+                    is_error = block.get("is_error", False)
+                    if type(is_error) is not bool:
+                        raise ValueError("invalid tool result error flag")
+                    event["ok"] = not is_error
+                    text = json.dumps(block.get("content", ""))
+                    event["denied"] = is_error and bool(re.search(
+                        r"permission denied|operation not permitted|denied by policy|not allowed", text, re.I))
     if not recognized:
         raise ValueError("unrecognized client stream")
+    if completed and any(event["ok"] is None for event in tools.values()):
+        raise ValueError("terminal result with unresolved tool calls")
     return events, completed
 
 
@@ -160,6 +178,8 @@ class LiveAdapter:
     def __init__(self, client, *, pin=None, enabled=False, executor=invoke, auth=None):
         if auth is not None and auth.client != client:
             raise ValueError("auth provision belongs to another client")
+        # Injected processes are test evidence even when they exercise this adapter.
+        self.synthetic = executor is not invoke
         self.client = self.name = client
         self.pin, self.enabled, self.executor, self.auth = pin, enabled, executor, auth
 

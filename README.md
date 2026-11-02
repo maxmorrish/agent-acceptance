@@ -59,6 +59,13 @@ Evidence is saved under `aap-results/<run-id>/`, ignored by Git. Each case recor
 client, client version, exact fixture hash, expected/observed values, and relative
 evidence paths. Observed file contents are represented by SHA-256 hashes.
 
+Reports also include `capabilities` (schema version 1): five rows grouped by
+fixture kind, with selected/exercised counts, verdict counts, fixture IDs, and
+live-verification labels. These summarize only the selected fixtures; an
+unselected kind is `unknown`, never implicitly supported. See
+[offline M2 capability coverage](docs/CAPABILITIES.md). Injected process
+executors, like the fake adapter, always produce synthetic evidence.
+
 ```sh
 .venv/bin/aap run --client codex --dry-run --json
 .venv/bin/aap run --client claude --fixture hook-tool-call --json

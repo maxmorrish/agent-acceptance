@@ -171,7 +171,7 @@ def run_case(fixture, adapter, output, *, dry_run=False, restorer=restore):
     path = evidence_dir / "evidence.json"
     path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (evidence_dir / "fixture.json").write_bytes(fixture.raw)
-    return {"fixture": fixture.id, "fixture_sha256": fixture.hash, "client": adapter.name,
+    return {"fixture": fixture.id, "kind": fixture.kind, "fixture_sha256": fixture.hash, "client": adapter.name,
             "simulated_client": adapter.client if adapter.synthetic else None,
             "client_version": observation.version, "status": status, "reason": reason,
             "exercised": exercised, "expected": expected, "observed": observed, "auth": auth,
@@ -196,5 +196,24 @@ def run(fixtures, adapter, output_root=Path("aap-results"), *, dry_run=False, re
               "auth": {key: sum(bool(c["auth"] and c["auth"][key]) for c in cases)
                        for key in ("provisioned", "removed", "rotated")},
               "cases": cases, "report": f"{run_id}/report.json"}
+    report["capabilities"] = capability_summary(cases, synthetic=adapter.synthetic, dry_run=dry_run)
     (output / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
+
+
+def capability_summary(cases, *, synthetic, dry_run):
+    """Measured selection coverage, never a claim about unselected fixtures."""
+    rows = []
+    for kind in ("instruction", "denied_write", "hook", "runtime", "restore"):
+        selected = [case for case in cases if case["kind"] == kind]
+        status = overall(selected)
+        rows.append({
+            "kind": kind, "status": status, "selected": len(selected),
+            "exercised": sum(case["exercised"] for case in selected),
+            "counts": {state: sum(case["status"] == state for case in selected)
+                       for state in ("pass", "fail", "unsupported", "unknown")},
+            "fixtures": [case["fixture"] for case in selected],
+            "live_verification": "EXERCISED" if selected and status == "pass"
+                                 and not synthetic and not dry_run else "UNVERIFIED",
+        })
+    return {"schema_version": 1, "scope": "selected fixtures only", "rows": rows}

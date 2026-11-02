@@ -114,6 +114,10 @@ def test_live_transport_with_injected_process_only(tmp_path, pin, cls, version, 
     assert report["status"] == "pass"
     assert report["cases"][0]["client_version"] == "1.2.3"
     assert len(calls) == 2
+    assert report["synthetic"] is True
+    assert report["live_verification"] == "UNVERIFIED"
+    assert all(row["live_verification"] == "UNVERIFIED"
+               for row in report["capabilities"]["rows"])
     # This test is synthetic; it does not establish live vendor behavior.
 
 
